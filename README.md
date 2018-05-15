@@ -1,6 +1,8 @@
 # Hello Kafka in Rust
 
-This project is a proof-of-concept of a Rust application reading from a Kafka topic, it will consume messages from a topic and print the messages to standard out
+This project is a proof-of-concept cargo project for a rust project reading from a Kafka topic, it will consume messages from a topic and print the messages to standard out
+
+The rust code is taken from https://github.com/spicavigo/kafka-rust/blob/master/examples/console-consumer.rs
 
 ## Getting Started
 
