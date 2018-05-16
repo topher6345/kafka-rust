@@ -3,11 +3,13 @@ extern crate getopts;
 extern crate env_logger;
 #[macro_use]
 extern crate error_chain;
+extern crate json;
 
 use std::{env, process};
 use std::time::Duration;
 use std::io::{self, Write};
 // use std::ascii::AsciiExt;
+use std::str;
 
 use kafka::consumer::{Consumer, FetchOffset, GroupOffsetStorage};
 
@@ -58,7 +60,12 @@ fn process(cfg: Config) -> Result<()> {
                 unsafe { buf.set_len(0) };
                 // ~ format the message for output
                 let _ = write!(buf, "{}:{}@{}:\n", ms.topic(), ms.partition(), m.offset);
-                buf.extend_from_slice(m.value);
+                if process_value(&m.value) {
+                    buf.extend_from_slice(m.value);
+                    buf.extend_from_slice(m.value);
+                } else {
+                    buf.extend_from_slice(m.value);
+                }
                 buf.push(b'\n');
                 // ~ write to output channel
                 try!(stdout.write_all(&buf));
@@ -69,6 +76,11 @@ fn process(cfg: Config) -> Result<()> {
             try!(c.commit_consumed());
         }
     }
+}
+
+fn process_value(value: &[u8]) -> bool {
+    let string = str::from_utf8(value).unwrap();
+    json::parse(string).unwrap()["foo"].is_object()
 }
 
 // --------------------------------------------------------------------
