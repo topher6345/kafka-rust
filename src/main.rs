@@ -4,8 +4,6 @@ extern crate env_logger;
 #[macro_use]
 extern crate error_chain;
 extern crate json;
-use kafka::producer::{Producer, Record, RequiredAcks};
-use kafka::error::Error as KafkaError;
 
 use std::{env, process};
 use std::time::Duration;
@@ -62,10 +60,10 @@ fn process(cfg: Config) -> Result<()> {
                 unsafe { buf.set_len(0) };
                 // ~ format the message for output
                 let _ = write!(buf, "{}:{}@{}:\n", ms.topic(), ms.partition(), m.offset);
-                process_value(&m.value);
+                hello::hello::process_value(&m.value);
                 buf.push(b'\n');
                 // ~ write to output channel
-                try!(stdout.write_all(&buf));
+                stdout.write_all(&buf)?;
             }
             let _ = c.consume_messageset(ms);
         }
@@ -75,18 +73,6 @@ fn process(cfg: Config) -> Result<()> {
     }
 }
 
-fn process_value(value: &[u8]) -> () {
-    let string = str::from_utf8(value).unwrap();
-    if json::parse(string).unwrap()["foo"].is_object() {
-        let broker = "localhost:9092";
-        let topic = "greetings";
-        if let Err(e) = hello::hello::produce_message(value, topic, vec![broker.to_owned()]) {
-            println!("Failed producing messages: {}", e);
-        }
-    }
-}
-
-// --------------------------------------------------------------------
 error_chain! {
     foreign_links {
         Kafka(kafka::error::Error);
@@ -94,8 +80,6 @@ error_chain! {
         Opt(getopts::Fail);
     }
 }
-
-// --------------------------------------------------------------------
 
 struct Config {
     brokers: Vec<String>,
