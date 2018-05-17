@@ -10,8 +10,8 @@ use kafka::error::Error as KafkaError;
 use std::{env, process};
 use std::time::Duration;
 use std::io::{self, Write};
-// use std::ascii::AsciiExt;
 use std::str;
+mod hello;
 
 use kafka::consumer::{Consumer, FetchOffset, GroupOffsetStorage};
 
@@ -47,7 +47,7 @@ fn process(cfg: Config) -> Result<()> {
         for topic in cfg.topics {
             cb = cb.with_topic(topic);
         }
-        try!(cb.create())
+        cb.create()?
     };
 
     let stdout = io::stdout();
@@ -56,7 +56,7 @@ fn process(cfg: Config) -> Result<()> {
 
     let do_commit = !cfg.no_commit;
     loop {
-        for ms in try!(c.poll()).iter() {
+        for ms in c.poll()?.iter() {
             for m in ms.messages() {
                 // ~ clear the output buffer
                 unsafe { buf.set_len(0) };
@@ -70,7 +70,7 @@ fn process(cfg: Config) -> Result<()> {
             let _ = c.consume_messageset(ms);
         }
         if do_commit {
-            try!(c.commit_consumed());
+            c.commit_consumed()?;
         }
     }
 }
@@ -80,7 +80,7 @@ fn process_value(value: &[u8]) -> () {
     if json::parse(string).unwrap()["foo"].is_object() {
         let broker = "localhost:9092";
         let topic = "greetings";
-        if let Err(e) = produce_message(value, topic, vec![broker.to_owned()]) {
+        if let Err(e) = hello::hello::produce_message(value, topic, vec![broker.to_owned()]) {
             println!("Failed producing messages: {}", e);
         }
     }
@@ -96,50 +96,6 @@ error_chain! {
 }
 
 // --------------------------------------------------------------------
-
-
-fn produce_message<'a, 'b>(
-    data: &'a [u8],
-    topic: &'b str,
-    brokers: Vec<String>,
-) -> Result<()> {
-    println!("About to publish a message at {:?} to: {}", brokers, topic);
-
-    // ~ create a producer. this is a relatively costly operation, so
-    // you'll do this typically once in your application and re-use
-    // the instance many times.
-    let mut producer = try!(
-        Producer::from_hosts(brokers)
-             // ~ give the brokers one second time to ack the message
-             .with_ack_timeout(Duration::from_secs(1))
-             // ~ require only one broker to ack the message
-             .with_required_acks(RequiredAcks::One)
-             // ~ build the producer with the above settings
-             .create()
-    );
-
-    // ~ now send a single message.  this is a synchronous/blocking
-    // operation.
-
-    // ~ we're sending 'data' as a 'value'. there will be no key
-    // associated with the sent message.
-
-    // ~ we leave the partition "unspecified" - this is a negative
-    // partition - which causes the producer to find out one on its
-    // own using its underlying partitioner.
-    try!(producer.send(&Record {
-        topic: topic,
-        partition: -1,
-        key: (),
-        value: data,
-    }));
-
-    // ~ we can achieve exactly the same as above in a shorter way with
-    // the following call
-    try!(producer.send(&Record::from_value(topic, data)));
-
-    Ok(())
-}
 
 struct Config {
     brokers: Vec<String>,
